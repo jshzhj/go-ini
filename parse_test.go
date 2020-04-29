@@ -13,8 +13,10 @@ type Config struct {
 
 //选项
 type ServerConfig struct {
-	Ip   string `default:"192.168.1.1" ini:"ip"` //default:默认值(可有可无) ini:映射(同上,可有可无)
-	Port uint   `default:"8080"`
+	Ip        string `default:"192.168.1.1" ini:"ip"` //default:默认值(可有可无) ini:映射(同上,可有可无)
+	Port      int    `default:"8080"`
+	TestFloat float32
+	TestUint  uint `default:"100"`
 }
 
 //选项
