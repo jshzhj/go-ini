@@ -7,31 +7,29 @@ import (
 //节点
 type Config struct {
 	ServerConf ServerConfig `ini:"server"`
-	MysqlConf  MysqlConfig  `ini:"mysql"`
+	Mysql      MysqlConfig
 }
 
 //选项
 type ServerConfig struct {
-	Ip   string `ini:"ip"`
-	Port uint   `ini:"port"`
+	Ipaa string `default:"192.168.1.1" ini:"ip"`
+	Port uint   `default:"8080"`
 }
 
 //选项
 type MysqlConfig struct {
-	Username string `ini:"username"`
-	Password string `ini:"password"`
+	Username string
+	Password string
 }
 
 func TestConfigToStruct(t *testing.T) {
-	iniPath := "config.ini"
+	iniPath := "config.ini" //配置文件路径
+	conf := &Config{}
 
-	var conf Config
-
-	err := Parse(iniPath, &conf)
+	err := Parse(iniPath, conf)
 	if err != nil {
 		t.Error(err)
 	}
 
 	t.Logf("ini到结构体解析成功! %#v", conf)
 }
-

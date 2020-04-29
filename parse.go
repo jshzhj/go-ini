@@ -56,12 +56,14 @@ func Parse(iniPath string, dstStruct interface{}) (err error) {
 			}
 			continue //跳出循环,继续扫描第二行
 		}
+
 		//解析选项
 		err = parseItem(lastFieldName, line, dstStruct)
 		if err != nil {
 			err = fmt.Errorf("%v lineno:%d", err, index+1)
 			return
 		}
+
 	}
 
 	return
@@ -90,10 +92,23 @@ func parseSection(line string, typeInfo reflect.Type) (fieldName string, err err
 			field := typeInfo.Field(i)       //获取结构体字段信息
 			tagValue := field.Tag.Get("ini") //获取tag
 
-			if tagValue == sectionName {
-				fieldName = field.Name //获取到ini中节点对应的结构体字段名称
-				break
+			if tagValue != "" {
+
+				if tagValue == sectionName {
+					fieldName = field.Name //获取到ini中节点对应的结构体字段名称
+					break
+				}
+
+			} else {
+
+				tagValue = strings.ToLower(field.Name)
+				if tagValue == sectionName {
+					fieldName = field.Name //转小写
+					break
+				}
+
 			}
+
 		}
 	}
 
@@ -126,13 +141,25 @@ func parseItem(lastFieldName, line string, dstStruct interface{}) (err error) {
 	}
 
 	keyFieldName := ""
+	defaultValue := ""
 	//遍历节点对应的结构体信息,eg:ServerConf 对应的ServerConfig结构体信息
 	for i := 0; i < sectionType.NumField(); i++ {
-		field := sectionType.Field(i)  //获取字段
-		tagVal := field.Tag.Get("ini") //获取tag
-		if tagVal == key {
-			keyFieldName = field.Name
-			break
+
+		field := sectionType.Field(i)               //获取字段
+		tagValue := field.Tag.Get("ini")        //获取tag
+		defaultValue = field.Tag.Get("default") //获取默认值
+
+		if tagValue != "" {
+			if tagValue == key {
+				keyFieldName = field.Name
+				break
+			}
+		} else {
+			tagValue = strings.ToLower(field.Name)
+			if tagValue == key {
+				keyFieldName = field.Name
+				break
+			}
 		}
 	}
 
@@ -144,31 +171,67 @@ func parseItem(lastFieldName, line string, dstStruct interface{}) (err error) {
 	if fieldValue == reflect.ValueOf(nil) {
 		return
 	}
-	//获取选项字段的类型,并设置值
+	//获取选项字段的类型,并设置值(如果该项值为空,则设置默认值)
 	switch fieldValue.Type().Kind() {
-
 	case reflect.String:
-		fieldValue.SetString(val)
+		//检查该值是否为空,如果为空,则查看其是否有默认值,如果有则设置,没有则设置空字符串
+		if defaultValue != "" && val == "" {
+			fieldValue.SetString(defaultValue)
+		} else {
+			fieldValue.SetString(val)
+		}
 	case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
-		intVal, errRet := strconv.ParseInt(val, 10, 64) //字符串转10进制数字
-		if errRet != nil {
-			err = errRet
-			return
+
+		if defaultValue != "" && val == "" {
+			defaultInt, errRet := strconv.ParseInt(defaultValue, 10, 64) //字符串转10进制数字
+			if errRet != nil {
+				err = errRet
+				return
+			}
+			fieldValue.SetInt(defaultInt)
+		} else {
+			intVal, errRet := strconv.ParseInt(val, 10, 64) //字符串转10进制数字
+			if errRet != nil {
+				err = errRet
+				return
+			}
+			fieldValue.SetInt(intVal)
 		}
-		fieldValue.SetInt(intVal)
+
 	case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint32, reflect.Uint64:
-		intVal, errRet := strconv.ParseUint(val, 10, 64)
-		if errRet != nil {
-			err = errRet
-			return
+
+		if defaultValue != "" && val == "" {
+			defaultUint, errRet := strconv.ParseUint(defaultValue, 10, 64) //字符串转10进制数字
+			if errRet != nil {
+				err = errRet
+				return
+			}
+			fieldValue.SetUint(defaultUint)
+		} else {
+			uIntVal, errRet := strconv.ParseUint(val, 10, 64)
+			if errRet != nil {
+				err = errRet
+				return
+			}
+			fieldValue.SetUint(uIntVal)
 		}
-		fieldValue.SetUint(intVal)
+
 	case reflect.Float32, reflect.Float64:
-		floatVal, errRet := strconv.ParseFloat(val, 64)
-		if errRet != nil {
-			return
+		if defaultValue != "" && val == "" {
+			defaultFloat, errRet := strconv.ParseFloat(defaultValue, 64) //字符串转10进制数字
+			if errRet != nil {
+				err = errRet
+				return
+			}
+			fieldValue.SetFloat(defaultFloat)
+		} else {
+			floatVal, errRet := strconv.ParseFloat(val, 64)
+			if errRet != nil {
+				return
+			}
+			fieldValue.SetFloat(floatVal)
 		}
-		fieldValue.SetFloat(floatVal)
+
 	default:
 		err = fmt.Errorf("unsupport type:%v", fieldValue.Type().Kind())
 	}
