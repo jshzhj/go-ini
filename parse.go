@@ -8,35 +8,41 @@ import (
 	"strings"
 )
 
+/**
+	@iniPath string 配置文件路径
+    @dstStruct interface{} 映射结构体
+*/
 func Parse(iniPath string, dstStruct interface{}) (err error) {
 	var (
-		iniData       []byte       //配置文件内容
-		lineArr       []string     //配置文件数组
-		typeInfo      reflect.Type //目标结构体类型信息
+		iniData       []byte
+		lineArr       []string
+		typeInfo      reflect.Type
 		typeStruct    reflect.Type
 		lastFieldName string
 	)
-	if iniData, err = ioutil.ReadFile(iniPath); err != nil {
-		err = fmt.Errorf("读取配置文件失败:%v", err)
-		return
-	}
 
-	lineArr = strings.Split(string(iniData), "\n") //行数据
-	//fmt.Printf("%#v",lineArr)
 	typeInfo = reflect.TypeOf(dstStruct)
 	if typeInfo.Kind() != reflect.Ptr {
-		err = fmt.Errorf("不是结构体指针类型")
+		err = fmt.Errorf("Parse() second param is not pointer")
 		return
 	}
 
 	typeStruct = typeInfo.Elem()
 	if typeStruct.Kind() != reflect.Struct {
-		err = fmt.Errorf("不是结构体类型")
+		err = fmt.Errorf("Parse() second param is not struct")
 		return
 	}
 
+	if iniData, err = ioutil.ReadFile(iniPath); err != nil {
+		err = fmt.Errorf("read config file failed:%v", err)
+		return
+	}
+
+	lineArr = strings.Split(string(iniData), "\n") //行数据
+	//fmt.Printf("%#v",lineArr)
+
 	for index, value := range lineArr {
-		line := strings.TrimSpace(value) //每一行首尾去空格
+		line := strings.TrimSpace(value)
 		if len(line) == 0 {
 			continue
 		}
@@ -54,7 +60,7 @@ func Parse(iniPath string, dstStruct interface{}) (err error) {
 				err = fmt.Errorf("%v lineno:%d", err, index+1)
 				return
 			}
-			continue //跳出循环,继续扫描第二行
+			continue
 		}
 
 		//解析选项
@@ -63,7 +69,6 @@ func Parse(iniPath string, dstStruct interface{}) (err error) {
 			err = fmt.Errorf("%v lineno:%d", err, index+1)
 			return
 		}
-
 	}
 
 	return
@@ -89,13 +94,13 @@ func parseSection(line string, typeInfo reflect.Type) (fieldName string, err err
 		}
 
 		for i := 0; i < typeInfo.NumField(); i++ {
-			field := typeInfo.Field(i)       //获取结构体字段信息
-			tagValue := field.Tag.Get("ini") //获取tag
+			field := typeInfo.Field(i)
+			tagValue := field.Tag.Get("ini")
 
 			if tagValue != "" {
 
 				if tagValue == sectionName {
-					fieldName = field.Name //获取到ini中节点对应的结构体字段名称
+					fieldName = field.Name
 					break
 				}
 
@@ -103,12 +108,11 @@ func parseSection(line string, typeInfo reflect.Type) (fieldName string, err err
 
 				tagValue = strings.ToLower(field.Name)
 				if tagValue == sectionName {
-					fieldName = field.Name //转小写
+					fieldName = field.Name
 					break
 				}
 
 			}
-
 		}
 	}
 
@@ -116,10 +120,9 @@ func parseSection(line string, typeInfo reflect.Type) (fieldName string, err err
 }
 
 func parseItem(lastFieldName, line string, dstStruct interface{}) (err error) {
-	//检查选项是否合法,没有=号,报错
 	index := strings.Index(line, "=")
 	if index == -1 {
-		err = fmt.Errorf("sytax error, line:%s", line)
+		err = fmt.Errorf("syntax error, line:%s", line)
 		return
 	}
 
@@ -127,11 +130,11 @@ func parseItem(lastFieldName, line string, dstStruct interface{}) (err error) {
 	val := strings.TrimSpace(line[index+1:])
 
 	if len(key) == 0 {
-		err = fmt.Errorf("sytax error, line:%s", line)
+		err = fmt.Errorf("syntax error, line:%s", line)
 		return
 	}
 
-	resultValue := reflect.ValueOf(dstStruct) //获取结构体值类型
+	resultValue := reflect.ValueOf(dstStruct)
 	sectionValue := resultValue.Elem().FieldByName(lastFieldName)
 
 	sectionType := sectionValue.Type()
@@ -142,12 +145,12 @@ func parseItem(lastFieldName, line string, dstStruct interface{}) (err error) {
 
 	keyFieldName := ""
 	defaultValue := ""
-	//遍历节点对应的结构体信息,eg:ServerConf 对应的ServerConfig结构体信息
+
 	for i := 0; i < sectionType.NumField(); i++ {
 
 		field := sectionType.Field(i)               //获取字段
-		tagValue := field.Tag.Get("ini")        //获取tag
-		defaultValue = field.Tag.Get("default") //获取默认值
+		tagValue := field.Tag.Get("ini")        //获取tag:ini
+		defaultValue = field.Tag.Get("default") //获取默认值tag:default
 
 		if tagValue != "" {
 			if tagValue == key {
